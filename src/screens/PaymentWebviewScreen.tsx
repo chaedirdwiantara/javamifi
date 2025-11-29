@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, ActivityIndicator, Alert, TouchableOpacity, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { PaymentWebviewScreenProps } from '../navigation/navigationTypes';
 import { theme } from '../theme';
 import { useAppDispatch } from '../redux/hooks';
 import { completeOrder, updatePaymentStatus } from '../redux/slices/orderSlice';
 import { clearCart } from '../redux/slices/cartSlice';
+import { checkTransactionStatus } from '../api/services/midtransService';
 
 const PaymentWebviewScreen: React.FC<PaymentWebviewScreenProps> = ({
     route,
@@ -14,89 +16,129 @@ const PaymentWebviewScreen: React.FC<PaymentWebviewScreenProps> = ({
     const { redirectUrl, orderId } = route.params;
     const dispatch = useAppDispatch();
     const [loading, setLoading] = useState(true);
+    const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+
+    // Setup Polling untuk cek status pembayaran
+    useEffect(() => {
+        startPolling();
+        return () => stopPolling();
+    }, []);
+
+    const startPolling = () => {
+        pollingInterval.current = setInterval(async () => {
+            try {
+                const response = await checkTransactionStatus(orderId);
+                console.log('🔄 Polling Response:', response);
+
+                // Extract transaction status from response object
+                // Midtrans response can be complex, we check multiple fields
+                const status = response.transaction_status;
+
+                if (status === 'settlement' || status === 'capture') {
+                    handlePaymentSuccess();
+                } else if (status === 'expire' || status === 'cancel' || status === 'deny') {
+                    handlePaymentFailure();
+                }
+            } catch (error) {
+                console.log('Polling error:', error);
+            }
+        }, 5000); // Cek setiap 5 detik
+    };
+
+    const stopPolling = () => {
+        if (pollingInterval.current) {
+            clearInterval(pollingInterval.current);
+            pollingInterval.current = null;
+        }
+    };
 
     const handleNavigationStateChange = (navState: any) => {
         const { url } = navState;
         console.log('🌐 WebView URL:', url);
 
-        // Check if payment is completed
-        // Midtrans will redirect to finish URL with transaction_status parameter
-        if (url.includes('transaction_status=settlement') || url.includes('transaction_status=capture')) {
-            // Payment Success
+        // Keep existing URL detection as backup
+        if (url.includes('transaction_status=settlement') ||
+            url.includes('transaction_status=capture') ||
+            url.includes('status_code=200')) {
             handlePaymentSuccess();
         } else if (url.includes('transaction_status=pending')) {
-            // Payment Pending (for bank transfer, etc)
             handlePaymentPending();
-        } else if (url.includes('transaction_status=deny') || url.includes('transaction_status=cancel')) {
-            // Payment Failed/Cancelled
+        } else if (url.includes('transaction_status=deny') ||
+            url.includes('transaction_status=cancel')) {
             handlePaymentFailure();
         }
     };
 
     const handlePaymentSuccess = () => {
+        stopPolling();
         console.log('✅ Payment Success!');
-
         dispatch(updatePaymentStatus('success'));
         dispatch(clearCart());
         dispatch(completeOrder());
 
-        // Navigate back to home tab
-        (navigation.getParent() as any)?.reset({
-            index: 0,
-            routes: [{ name: 'HomeTab' }],
-        });
-
-        setTimeout(() => {
-            Alert.alert(
-                'Payment Successful! 🎉',
-                'Thank you for your order. Your payment has been processed successfully.',
-                [{ text: 'OK' }]
-            );
-        }, 500);
+        Alert.alert(
+            'Payment Successful! 🎉',
+            'Thank you for your order.',
+            [{
+                text: 'OK',
+                onPress: () => {
+                    (navigation.getParent() as any)?.reset({
+                        index: 0,
+                        routes: [{ name: 'HomeTab' }],
+                    });
+                }
+            }]
+        );
     };
 
     const handlePaymentPending = () => {
+        stopPolling();
         console.log('⏳ Payment Pending');
-
         dispatch(updatePaymentStatus('pending'));
 
-        (navigation.getParent() as any)?.reset({
-            index: 0,
-            routes: [{ name: 'HomeTab' }],
-        });
-
-        setTimeout(() => {
-            Alert.alert(
-                'Payment Pending',
-                'Your payment is being processed. We will notify you once it\'s confirmed.',
-                [{ text: 'OK' }]
-            );
-        }, 500);
+        Alert.alert(
+            'Payment Pending',
+            'Please complete your payment.',
+            [{
+                text: 'OK',
+                onPress: () => {
+                    (navigation.getParent() as any)?.reset({
+                        index: 0,
+                        routes: [{ name: 'HomeTab' }],
+                    });
+                }
+            }]
+        );
     };
 
     const handlePaymentFailure = () => {
+        stopPolling();
         console.log('❌ Payment Failed');
-
         dispatch(updatePaymentStatus('failed'));
 
-        navigation.goBack();
-
-        setTimeout(() => {
-            Alert.alert(
-                'Payment Failed',
-                'Your payment was not successful. Please try again.',
-                [{ text: 'OK' }]
-            );
-        }, 500);
+        Alert.alert(
+            'Payment Failed',
+            'Transaction failed or cancelled.',
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
     };
 
     return (
         <View style={styles.container}>
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeBtn}>
+                    <Icon name="close" size={24} color={theme.colors.text} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Payment</Text>
+                <View style={{ width: 24 }} />
+            </View>
+
             {loading && (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={theme.colors.primary} />
+                <View style={styles.loadingBar}>
+                    <ActivityIndicator size="small" color={theme.colors.primary} />
                 </View>
             )}
+
             <WebView
                 source={{ uri: redirectUrl }}
                 onNavigationStateChange={handleNavigationStateChange}
@@ -113,12 +155,27 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: theme.colors.background,
     },
-    loadingContainer: {
-        ...StyleSheet.absoluteFillObject,
-        justifyContent: 'center',
+    header: {
+        height: 56,
+        flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.colors.background,
-        zIndex: 1,
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        backgroundColor: theme.colors.surface,
+        elevation: 4,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: theme.colors.text,
+    },
+    closeBtn: {
+        padding: 8,
+    },
+    loadingBar: {
+        height: 3,
+        width: '100%',
+        backgroundColor: theme.colors.surface,
     },
     webview: {
         flex: 1,
