@@ -15,6 +15,7 @@ import ProductDetailScreen from '../screens/ProductDetailScreen';
 import CartScreen from '../screens/CartScreen';
 import CheckoutScreen from '../screens/CheckoutScreen';
 import PaymentScreen from '../screens/PaymentScreen';
+import PaymentWebviewScreen from '../screens/PaymentWebviewScreen';
 // import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
 // import PaymentFailedScreen from '../screens/PaymentFailedScreen';
 
@@ -74,6 +75,11 @@ function CartNavigator() {
                 name="Payment"
                 component={PaymentScreen}
                 options={{ title: 'Payment' }}
+            />
+            <CartStack.Screen
+                name="PaymentWebview"
+                component={PaymentWebviewScreen}
+                options={{ title: 'Payment Gateway' }}
             />
             {/* 
       <CartStack.Screen 

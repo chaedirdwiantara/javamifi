@@ -1,10 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ActivityIndicator,
-    Image,
     Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -14,50 +13,54 @@ import { PaymentScreenProps } from '../navigation/navigationTypes';
 import { theme } from '../theme';
 import { Button } from '../components/common/Button';
 import { formatCurrency } from '../utils/currency';
-import { initiateMockPayment } from '../api/services/paymentService';
+import { getSnapToken } from '../api/services/midtransService';
 
 const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation }) => {
     const dispatch = useAppDispatch();
-    const { currentOrder, loading } = useAppSelector(state => state.order);
+    const { currentOrder } = useAppSelector(state => state.order);
+    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (currentOrder && currentOrder.paymentStatus === 'pending') {
-            // Auto-trigger logic could go here
-        }
-    }, [currentOrder]);
-
-    const handlePay = () => {
-        simulatePayment();
-    };
-
-    const simulatePayment = async () => {
+    const handlePay = async () => {
         if (!currentOrder) return;
 
-        // In a real app, we would dispatch an action to start payment
-        // For this MVP, we simulate the UI flow here
+        setLoading(true);
 
-        Alert.alert(
-            'Processing Payment',
-            'Please wait while we process your payment...',
-            [{ text: 'OK', onPress: () => finishPayment() }]
-        );
-    };
+        try {
+            console.log('🔄 Requesting Midtrans Snap Token...');
 
-    const finishPayment = () => {
-        // Navigate to Home after "success"
-        navigation.reset({
-            index: 0,
-            routes: [{ name: 'HomeTab' }],
-        });
+            // Get Snap Token from Midtrans
+            const snapResponse = await getSnapToken(currentOrder);
 
-        Alert.alert('Success', 'Payment successful! Thank you for your order.');
+            console.log('✅ Got Snap Token:', snapResponse.token);
+
+            // Navigate to WebView with redirect URL
+            navigation.navigate('PaymentWebview', {
+                redirectUrl: snapResponse.redirect_url,
+                orderId: currentOrder.id,
+            });
+        } catch (error) {
+            console.error('❌ Payment error:', error);
+
+            Alert.alert(
+                'Payment Error',
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to initialize payment. Please try again.',
+                [{ text: 'OK' }],
+            );
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (!currentOrder) {
         return (
             <View style={styles.centerContainer}>
                 <Text>No active order</Text>
-                <Button title="Go Home" onPress={() => navigation.navigate('HomeTab')} />
+                <Button
+                    title="Go Home"
+                    onPress={() => (navigation.getParent() as any)?.navigate('HomeTab')}
+                />
             </View>
         );
     }
@@ -65,24 +68,44 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation }) => {
     return (
         <View style={styles.container}>
             <View style={styles.card}>
-                <Icon name="credit-card-check-outline" size={64} color={theme.colors.primary} />
+                <Icon
+                    name="credit-card-check-outline"
+                    size={64}
+                    color={theme.colors.primary}
+                />
                 <Text style={styles.title}>Payment Confirmation</Text>
-                <Text style={styles.amount}>{formatCurrency(currentOrder.totalAmount)}</Text>
+                <Text style={styles.amount}>
+                    {formatCurrency(currentOrder.totalAmount)}
+                </Text>
                 <Text style={styles.orderId}>Order ID: {currentOrder.id}</Text>
 
                 <View style={styles.infoContainer}>
                     <Text style={styles.infoText}>
-                        Please complete your payment to finalize the order.
-                        This is a mock payment page.
+                        Please complete your payment to finalize the order. You will be
+                        redirected to Midtrans payment gateway.
                     </Text>
                 </View>
 
                 <Button
-                    title="Pay Now (Mock)"
+                    title={loading ? 'Processing...' : 'Pay with Midtrans'}
                     onPress={handlePay}
                     style={styles.payButton}
                     size="large"
+                    disabled={loading}
                 />
+
+                {loading && (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator
+                            size="small"
+                            color={theme.colors.primary}
+                            style={{ marginTop: theme.spacing.md }}
+                        />
+                        <Text style={styles.loadingText}>
+                            Connecting to payment gateway...
+                        </Text>
+                    </View>
+                )}
             </View>
         </View>
     );
@@ -139,6 +162,15 @@ const styles = StyleSheet.create({
     },
     payButton: {
         width: '100%',
+    },
+    loadingContainer: {
+        alignItems: 'center',
+        marginTop: theme.spacing.md,
+    },
+    loadingText: {
+        fontSize: theme.typography.fontSize.sm,
+        color: theme.colors.textSecondary,
+        marginTop: theme.spacing.sm,
     },
 });
 

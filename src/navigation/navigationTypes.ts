@@ -13,6 +13,10 @@ export type CartStackParamList = {
     Cart: undefined;
     Checkout: undefined;
     Payment: undefined;
+    PaymentWebview: {
+        redirectUrl: string;
+        orderId: string;
+    };
     PaymentSuccess: { orderId: string; transactionId?: string };
     PaymentFailed: { orderId: string; message?: string };
 };
@@ -42,6 +46,8 @@ export type CartScreenProps = CompositeScreenProps<
 export type CheckoutScreenProps = NativeStackScreenProps<CartStackParamList, 'Checkout'>;
 
 export type PaymentScreenProps = NativeStackScreenProps<CartStackParamList, 'Payment'>;
+
+export type PaymentWebviewScreenProps = NativeStackScreenProps<CartStackParamList, 'PaymentWebview'>;
 
 export type PaymentSuccessScreenProps = NativeStackScreenProps<CartStackParamList, 'PaymentSuccess'>;
 
