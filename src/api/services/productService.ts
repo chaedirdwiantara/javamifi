@@ -14,7 +14,7 @@ const SIMULATED_DELAY = 500; // 500ms to simulate network delay
  */
 export const fetchProducts = async (): Promise<ProductListResponse> => {
     // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY));
+    await new Promise<void>(resolve => setTimeout(resolve, SIMULATED_DELAY));
 
     const products = getAllProducts();
 
@@ -31,7 +31,7 @@ export const fetchProducts = async (): Promise<ProductListResponse> => {
  */
 export const fetchProductDetail = async (productId: string): Promise<Product | null> => {
     // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY));
+    await new Promise<void>(resolve => setTimeout(resolve, SIMULATED_DELAY));
 
     const product = getProductById(productId);
 
@@ -44,7 +44,7 @@ export const fetchProductDetail = async (productId: string): Promise<Product | n
  * @returns Promise with filtered products
  */
 export const searchProducts = async (query: string): Promise<ProductListResponse> => {
-    await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY));
+    await new Promise<void>(resolve => setTimeout(resolve, SIMULATED_DELAY));
 
     const allProducts = getAllProducts();
     const filtered = allProducts.filter(product =>
