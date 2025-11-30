@@ -13,4 +13,3 @@ const reactotron = Reactotron
     .connect();
 
 export default reactotron;
-dwas
