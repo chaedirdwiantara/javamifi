@@ -59,3 +59,27 @@ export const checkTransactionStatus = async (orderId: string): Promise<any> => {
         throw new Error('Failed to check payment status');
     }
 };
+
+/**
+ * Check payment status from Backend API
+ * This triggers stock update in backend when payment is successful
+ */
+export const checkPaymentStatusFromBackend = async (orderId: string): Promise<any> => {
+    try {
+        console.log('📤 Checking payment status from backend for order:', orderId);
+
+        const response = await apiClient.get(
+            `${API_CONFIG.ENDPOINTS.PAYMENT.CHECK_STATUS}/${orderId}`
+        );
+
+        console.log('✅ Payment status received from backend');
+
+        return response.data;
+    } catch (error: any) {
+        console.error('❌ Failed to check payment status from backend:', error);
+
+        const errorMessage = error.response?.data?.error?.message ||
+            'Failed to check payment status';
+        throw new Error(errorMessage);
+    }
+};

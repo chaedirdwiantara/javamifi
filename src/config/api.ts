@@ -12,9 +12,7 @@ import { Platform } from 'react-native';
 // Change this to your laptop's IP if testing on physical device
 const LAPTOP_IP = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
 
-const BASE_URL = __DEV__
-    ? `http://${LAPTOP_IP}:3000/api/v1`
-    : 'https://your-production-api.com/api/v1';
+const BASE_URL = 'https://javamifi-api-production.up.railway.app/api/v1';
 
 /**
  * Axios instance with default configuration

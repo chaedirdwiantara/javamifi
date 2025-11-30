@@ -7,7 +7,7 @@ import { theme } from '../theme';
 import { useAppDispatch } from '../redux/hooks';
 import { completeOrder, updatePaymentStatus } from '../redux/slices/orderSlice';
 import { clearCart } from '../redux/slices/cartSlice';
-import { checkTransactionStatus } from '../api/services/midtransService';
+import { checkPaymentStatusFromBackend } from '../api/services/midtransService';
 
 const PaymentWebviewScreen: React.FC<PaymentWebviewScreenProps> = ({
     route,
@@ -27,16 +27,15 @@ const PaymentWebviewScreen: React.FC<PaymentWebviewScreenProps> = ({
     const startPolling = () => {
         pollingInterval.current = setInterval(async () => {
             try {
-                const response = await checkTransactionStatus(orderId);
+                const response = await checkPaymentStatusFromBackend(orderId);
                 console.log('🔄 Polling Response:', response);
 
-                // Extract transaction status from response object
-                // Midtrans response can be complex, we check multiple fields
-                const status = response.transaction_status;
+                // Backend returns paymentStatus field
+                const status = response.paymentStatus;
 
-                if (status === 'settlement' || status === 'capture') {
+                if (status === 'success') {
                     handlePaymentSuccess();
-                } else if (status === 'expire' || status === 'cancel' || status === 'deny') {
+                } else if (status === 'failed') {
                     handlePaymentFailure();
                 }
             } catch (error) {
