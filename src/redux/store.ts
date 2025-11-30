@@ -24,6 +24,15 @@ export const store = configureStore({
             },
         }).concat(sagaMiddleware),
     devTools: __DEV__, // Enable Redux DevTools in development
+    enhancers: (getDefaultEnhancers) => {
+        if (__DEV__) {
+            const reactotron = require('../config/ReactotronConfig').default;
+            return reactotron.createEnhancer
+                ? getDefaultEnhancers().concat(reactotron.createEnhancer())
+                : getDefaultEnhancers();
+        }
+        return getDefaultEnhancers();
+    },
 });
 
 // Run root saga

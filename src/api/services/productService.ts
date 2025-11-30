@@ -1,27 +1,59 @@
-import { Product, ProductListResponse } from '../../types/product';
-import { getAllProducts, getProductById } from '../dummy/products';
+import { Product, ProductListResponse, ProductCategory } from '../../types/product';
+import { apiClient, API_CONFIG } from '../../config/api';
 
 /**
  * Product Service
- * Currently returns dummy data, will be replaced with real API calls
+ * Fetches product data from backend API
  */
 
-const SIMULATED_DELAY = 500; // 500ms to simulate network delay
+/**
+ * Map backend category to mobile app category enum
+ */
+const mapBackendCategory = (backendCategory: { name: string }): ProductCategory => {
+    const mapping: Record<string, ProductCategory> = {
+        'SIM Card': 'SIM_CARD',
+        'Modem': 'MODEM_WIFI',
+        'Accessories': 'ACCESSORIES',
+    };
+    return mapping[backendCategory.name] || 'ACCESSORIES';
+};
+
+/**
+ * Map backend product to mobile product type
+ */
+const mapBackendProduct = (backendProduct: any): Product => {
+    return {
+        id: backendProduct.id,
+        name: backendProduct.name,
+        category: mapBackendCategory(backendProduct.category),
+        price: backendProduct.price,
+        description: backendProduct.description,
+        image: backendProduct.image_url,
+        stock: backendProduct.stock,
+        specifications: backendProduct.specs || {},
+    };
+};
 
 /**
  * Fetch all products
  * @returns Promise with product list
  */
 export const fetchProducts = async (): Promise<ProductListResponse> => {
-    // Simulate API call delay
-    await new Promise<void>(resolve => setTimeout(resolve, SIMULATED_DELAY));
+    try {
+        const response = await apiClient.get(API_CONFIG.ENDPOINTS.PRODUCTS);
 
-    const products = getAllProducts();
+        const { products, pagination } = response.data;
 
-    return {
-        products,
-        total: products.length,
-    };
+        const mappedProducts = products.map(mapBackendProduct);
+
+        return {
+            products: mappedProducts,
+            total: pagination.total,
+        };
+    } catch (error) {
+        console.error('Failed to fetch products:', error);
+        throw error;
+    }
 };
 
 /**
@@ -30,12 +62,17 @@ export const fetchProducts = async (): Promise<ProductListResponse> => {
  * @returns Promise with product data or null if not found
  */
 export const fetchProductDetail = async (productId: string): Promise<Product | null> => {
-    // Simulate API call delay
-    await new Promise<void>(resolve => setTimeout(resolve, SIMULATED_DELAY));
+    try {
+        const response = await apiClient.get(`${API_CONFIG.ENDPOINTS.PRODUCTS}/${productId}`);
 
-    const product = getProductById(productId);
-
-    return product || null;
+        return mapBackendProduct(response.data);
+    } catch (error: any) {
+        if (error.response?.status === 404) {
+            return null;
+        }
+        console.error('Failed to fetch product detail:', error);
+        throw error;
+    }
 };
 
 /**
@@ -44,22 +81,21 @@ export const fetchProductDetail = async (productId: string): Promise<Product | n
  * @returns Promise with filtered products
  */
 export const searchProducts = async (query: string): Promise<ProductListResponse> => {
-    await new Promise<void>(resolve => setTimeout(resolve, SIMULATED_DELAY));
+    try {
+        const response = await apiClient.get(API_CONFIG.ENDPOINTS.PRODUCTS, {
+            params: { search: query },
+        });
 
-    const allProducts = getAllProducts();
-    const filtered = allProducts.filter(product =>
-        product.name.toLowerCase().includes(query.toLowerCase()) ||
-        product.category.toLowerCase().includes(query.toLowerCase())
-    );
+        const { products, pagination } = response.data;
 
-    return {
-        products: filtered,
-        total: filtered.length,
-    };
+        const mappedProducts = products.map(mapBackendProduct);
+
+        return {
+            products: mappedProducts,
+            total: pagination.total,
+        };
+    } catch (error) {
+        console.error('Failed to search products:', error);
+        throw error;
+    }
 };
-
-// TODO: When real API is ready, replace with:
-// export const fetchProducts = async (): Promise<ProductListResponse> => {
-//   const response = await axios.get(`${API_CONFIG.BASE_URL}/products`);
-//   return response.data;
-// };

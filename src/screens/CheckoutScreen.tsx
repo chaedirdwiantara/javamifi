@@ -33,10 +33,15 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
     const validate = () => {
         const newErrors: Partial<typeof form> = {};
         if (!form.name) newErrors.name = 'Name is required';
+
         if (!form.email) newErrors.email = 'Email is required';
         else if (!/\S+@\S+\.\S+/.test(form.email)) newErrors.email = 'Invalid email';
+
         if (!form.phone) newErrors.phone = 'Phone is required';
+        else if (form.phone.length < 10) newErrors.phone = 'Phone number must be at least 10 digits';
+
         if (!form.address) newErrors.address = 'Address is required';
+        else if (form.address.length < 10) newErrors.address = 'Address must be at least 10 characters';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;

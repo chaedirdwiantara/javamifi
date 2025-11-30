@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { MIDTRANS_CONFIG, getAuthHeader } from '../../config/midtrans';
-import { Order } from '../../types/order';
+import { apiClient, API_CONFIG } from '../../config/api';
+import { getAuthHeader } from '../../config/midtrans';
 
 /**
  * Midtrans Snap Transaction Response
@@ -11,67 +11,37 @@ export interface MidtransSnapResponse {
 }
 
 /**
- * Generate Snap Token from Midtrans
- * This creates a payment transaction and returns a token + redirect URL
+ * Generate Snap Token from Backend API
+ * Backend handles secure server-side Midtrans integration
+ * @param orderId - Order ID from backend
  */
-export const getSnapToken = async (order: Order): Promise<MidtransSnapResponse> => {
+export const getSnapToken = async (orderId: string): Promise<MidtransSnapResponse> => {
     try {
-        // Prepare transaction details for Midtrans
-        const transactionDetails = {
-            transaction_details: {
-                order_id: order.id,
-                gross_amount: order.totalAmount,
-            },
-            customer_details: {
-                first_name: order.customerInfo.name,
-                email: order.customerInfo.email,
-                phone: order.customerInfo.phone,
-            },
-            item_details: order.items.map(item => ({
-                id: item.product.id,
-                price: item.product.price,
-                quantity: item.quantity,
-                name: item.product.name,
-            })),
-        };
+        console.log('📤 Requesting Midtrans token for order:', orderId);
 
-        console.log('📤 Sending request to Midtrans:', transactionDetails);
-
-        // Make request to Midtrans Snap API
-        const response = await axios.post(
-            MIDTRANS_CONFIG.snapUrl,
-            transactionDetails,
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': getAuthHeader(),
-                },
-            }
+        const response = await apiClient.post(
+            API_CONFIG.ENDPOINTS.PAYMENT.CREATE_TRANSACTION,
+            { orderId }
         );
 
-        console.log('✅ Midtrans response:', response.data);
+        console.log('✅ Midtrans token received');
 
         return {
             token: response.data.token,
-            redirect_url: response.data.redirect_url,
+            redirect_url: response.data.redirectUrl,
         };
-    } catch (error) {
-        console.error('❌ Midtrans error:', error);
+    } catch (error: any) {
+        console.error('❌ Failed to get Midtrans token:', error);
 
-        if (axios.isAxiosError(error)) {
-            throw new Error(
-                error.response?.data?.error_messages?.[0] ||
-                'Failed to create payment transaction'
-            );
-        }
-
-        throw new Error('Failed to connect to payment gateway');
+        const errorMessage = error.response?.data?.error?.message ||
+            'Failed to create payment transaction';
+        throw new Error(errorMessage);
     }
 };
 
 /**
  * Check transaction status from Midtrans
- * This can be used to verify payment after redirect
+ * This is still called directly from client for polling mechanism
  */
 export const checkTransactionStatus = async (orderId: string): Promise<any> => {
     try {

@@ -26,17 +26,26 @@ const PaymentScreen: React.FC<PaymentScreenProps> = ({ navigation }) => {
         setLoading(true);
 
         try {
-            console.log('🔄 Requesting Midtrans Snap Token...');
+            console.log('🔄 Creating order in backend...');
 
-            // Get Snap Token from Midtrans
-            const snapResponse = await getSnapToken(currentOrder);
+            // Step 1: Create order in backend
+            const { createOrder } = require('../api/services/orderService');
+            const orderResponse = await createOrder(
+                currentOrder.customerInfo,
+                currentOrder.items
+            );
 
-            console.log('✅ Got Snap Token:', snapResponse.token);
+            console.log('✅ Order created:', orderResponse.orderId);
 
-            // Navigate to WebView with redirect URL
+            // Step 2: Get Snap Token from backend using the orderId
+            const snapResponse = await getSnapToken(orderResponse.orderId);
+
+            console.log('✅ Got Snap Token');
+
+            // Step 3: Navigate to WebView with redirect URL
             navigation.navigate('PaymentWebview', {
                 redirectUrl: snapResponse.redirect_url,
-                orderId: currentOrder.id,
+                orderId: orderResponse.orderId,
             });
         } catch (error) {
             console.error('❌ Payment error:', error);
